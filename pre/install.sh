@@ -1,4 +1,4 @@
-#!/root/.nix-profile/bin/bash
+#!/bin/bash
 
 # Copyright (C) 2021-2024 Thien Tran, Tommaso Chiti
 #
