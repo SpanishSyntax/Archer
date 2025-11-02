@@ -17,7 +17,9 @@
 source ./commons.sh
 source ./post/0_users/users.sh
 
-check_live_env
+# check_live_env
+detect_os
+check_internet
 check_dialog
 
 if [ "$USE_DIALOG" = false ]; then
@@ -29,7 +31,11 @@ if [ "$USE_DIALOG" = false ]; then
     read -p "Install dialog? (y/n): " install_dialog
 
     if [[ "$install_dialog" =~ ^[Yy]$ ]]; then
-        sudo -S bash -c "pacman --noconfirm -Sy && pacman --noconfirm -S dialog"
+        if [ "$OS" = "arch" ]; then
+            sudo -S bash -c "pacman --noconfirm -Sy && pacman --noconfirm -S dialog"
+        elif [ "$OS" = "nixos" ]; then
+            sudo -S bash -c "nix-env -iA nixos.dialog"
+        fi
         USE_DIALOG=true
     else
         USE_DIALOG=false
@@ -39,11 +45,6 @@ if [ "$USE_DIALOG" = false ]; then
 fi
 
 cp -f .dialogrc /root/.dialogrc
-
-# check_internet
-# update_mirrors
-# refresh_pacman_db
-# install_fs_tools
 
 launcher_menu () 
 {
@@ -57,13 +58,15 @@ Press space for multiselect."
     while true; do
         local options=(\
             "Install Arch" \
+            "Install Nixos" \
             "Configure Arch after install" \
             "Exit"
         )
         menu_prompt main_menu_choice "$title" "$description" "${options[@]}"
         case $main_menu_choice in
-            0)  ./pre/install.sh;exit;;
-            1)  ./post/configure.sh;;
+            0)  ./pre/install_arch.sh;exit;;
+            1)  ./pre/install_nixos.sh;exit;;
+            2)  ./post/configure.sh;;
             e)  exit;;
             *)  continue_script 2 "Not a valid choice!" "Invalid choice, please try again.";;
         esac

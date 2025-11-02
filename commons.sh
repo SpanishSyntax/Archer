@@ -14,6 +14,21 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+detect_os() {
+    if [ -f /etc/arch-release ]; then
+        OS="arch"
+    elif [ -f /etc/NIXOS ]; then
+        OS="nixos"
+    elif [ -f /etc/debian_version ]; then
+        OS="debian"
+    elif grep -qi "fedora" /etc/os-release 2>/dev/null; then
+        OS="fedora"
+    else
+        OS="unknown"
+    fi
+    export OS
+}
+
 check_dialog(){
     if command -v dialog &> /dev/null; then
         USE_DIALOG=true
@@ -44,80 +59,70 @@ check_internet() {
     rm -f "$TEMP_FILE"  # Clean up temporary file
 }
 
-update_mirrors() {
-    TEMP_FILE=$(mktemp)
+# update_mirrors() {
+#     TEMP_FILE=$(mktemp)
     
-    continue_script 2 "Updating Mirrors" "Running \`reflector\` to fetch the latest fast mirrors..."
+#     continue_script 2 "Updating Mirrors" "Running \`reflector\` to fetch the latest fast mirrors..."
 
-    if reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist >"$TEMP_FILE" 2>&1; then
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Mirrorlist successfully updated using reflector." >> "$TEMP_FILE"
-        export MIRRORS_UPDATED=true
-    else
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Failed to update mirrorlist. Check your internet or reflector installation." >> "$TEMP_FILE"
-        export MIRRORS_UPDATED=false
-        exit 1
-    fi
+#     if reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist >"$TEMP_FILE" 2>&1; then
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Mirrorlist successfully updated using reflector." >> "$TEMP_FILE"
+#         export MIRRORS_UPDATED=true
+#     else
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Failed to update mirrorlist. Check your internet or reflector installation." >> "$TEMP_FILE"
+#         export MIRRORS_UPDATED=false
+#         exit 1
+#     fi
 
-    continue_script 2 "Mirrorlist Updated!" "$(cat "$TEMP_FILE")"
-    rm -f "$TEMP_FILE"
-}
+#     continue_script 2 "Mirrorlist Updated!" "$(cat "$TEMP_FILE")"
+#     rm -f "$TEMP_FILE"
+# }
 
-refresh_pacman_db() {
-    TEMP_FILE=$(mktemp)
+# refresh_pacman_db() {
+#     TEMP_FILE=$(mktemp)
 
-    continue_script 2 "Refreshing Pacman DB" "Running \`pacman -Syy\` to refresh package database..."
+#     continue_script 2 "Refreshing Pacman DB" "Running \`pacman -Syy\` to refresh package database..."
 
-    if pacman -Syy --noconfirm >"$TEMP_FILE" 2>&1; then
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Pacman database successfully refreshed." >> "$TEMP_FILE"
-        export PACMAN_REFRESHED=true
-    else
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Pacman DB refresh failed. Check your internet or mirrors." >> "$TEMP_FILE"
-        export PACMAN_REFRESHED=false
-        exit 1
-    fi
+#     if pacman -Syy --noconfirm >"$TEMP_FILE" 2>&1; then
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Pacman database successfully refreshed." >> "$TEMP_FILE"
+#         export PACMAN_REFRESHED=true
+#     else
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Pacman DB refresh failed. Check your internet or mirrors." >> "$TEMP_FILE"
+#         export PACMAN_REFRESHED=false
+#         exit 1
+#     fi
 
-    continue_script 2 "Pacman DB Refreshed!" "$(cat "$TEMP_FILE")"
-    rm -f "$TEMP_FILE"
-}
+#     continue_script 2 "Pacman DB Refreshed!" "$(cat "$TEMP_FILE")"
+#     rm -f "$TEMP_FILE"
+# }
 
-install_fs_tools() {
-    TEMP_FILE=$(mktemp)
+# install_fs_tools() {
+#     TEMP_FILE=$(mktemp)
 
-    continue_script 2 "Installing Filesystem Tools" "Installing essential filesystem packages like btrfs-progs, ntfs-3g, and more..."
+#     continue_script 2 "Installing Filesystem Tools" "Installing essential filesystem packages like btrfs-progs, ntfs-3g, and more..."
 
-    pacman -Sy --noconfirm > /dev/null
+#     pacman -Sy --noconfirm > /dev/null
 
-    if pacman -S --noconfirm btrfs-progs ntfs-3g xfsprogs dosfstools exfatprogs e2fsprogs >>"$TEMP_FILE" 2>&1; then
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Filesystem tools installed successfully." >> "$TEMP_FILE"
-        export FS_TOOLS_INSTALLED=true
-    else
-        printf "\n\n" >> "$TEMP_FILE"
-        terminal_title "Failed to install some filesystem tools." >> "$TEMP_FILE"
-        export FS_TOOLS_INSTALLED=false
-        exit 1
-    fi
+#     if pacman -S --noconfirm btrfs-progs ntfs-3g xfsprogs dosfstools exfatprogs e2fsprogs >>"$TEMP_FILE" 2>&1; then
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Filesystem tools installed successfully." >> "$TEMP_FILE"
+#         export FS_TOOLS_INSTALLED=true
+#     else
+#         printf "\n\n" >> "$TEMP_FILE"
+#         terminal_title "Failed to install some filesystem tools." >> "$TEMP_FILE"
+#         export FS_TOOLS_INSTALLED=false
+#         exit 1
+#     fi
 
-    continue_script 2 "Filesystem Tools Ready!" "$(cat "$TEMP_FILE")"
-    rm -f "$TEMP_FILE"
-}
+#     continue_script 2 "Filesystem Tools Ready!" "$(cat "$TEMP_FILE")"
+#     rm -f "$TEMP_FILE"
+# }
 
 
-check_live_env(){
-    if [ -d /run/archiso ]; then
-        LIVE_ENV=true
-    elif [ -f /etc/arch-release ]; then
-        LIVE_ENV=false
-    else
-        echo "Cannot determine if it's a live or installed environment"
-        LIVE_ENV=false
-    fi
-    export LIVE_ENV
-}
+
 
 screen_height=$(tput lines)
 screen_width=$(tput cols)

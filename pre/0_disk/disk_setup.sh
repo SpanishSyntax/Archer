@@ -229,24 +229,10 @@ nuke_disk() {
     commands_to_run+=("dd if=/dev/zero of=\"${DISK}\" bs=1M count=10 status=progress")
 
     # 3. Reload partition info
-    commands_to_run+=("partprobe \"${DISK}\"")
-    commands_to_run+=("udevadm settle")
-
-    # 4. Zap and create fresh GPT
-    commands_to_run+=("sgdisk --zap-all \"${DISK}\"")
-    commands_to_run+=("sgdisk -g \"${DISK}\"")
-
-    # 5. Create partitions
-    commands_to_run+=("sgdisk -n 1:0:+1024M -t 1:ef00 -c 1:'ESP' \"${DISK}\"")
-    commands_to_run+=("sgdisk -n 2:0:0 -c 2:'rootfs' \"${DISK}\"")
-
-    # 6. Sync and reload
     commands_to_run+=("sync")
-    commands_to_run+=("udevadm settle")
     commands_to_run+=("partprobe \"${DISK}\"")
-
-    # 7. Check if partitions created
-    commands_to_run+=("[[ \$(lsblk -nro NAME \"\${DISK}\" | grep -E -c '^$(basename ${DISK})p?[0-9]+$') -ge 2 ]] && echo 'Partitions created successfully' || { echo 'Partitioning failed'; exit 1; }")
+    commands_to_run+=("udevadm settle")
+    
     export DISK
     live_command_output "" "" "Nuking $DISK" "${commands_to_run[@]}"
 }
@@ -255,21 +241,33 @@ autopartition_disk() {
     commands_to_run=()
 
     EFI_PART="/dev/disk/by-partlabel/ESP"
-    ROOT_PART="/dev/disk/by-partlabel/rootfs"
+    ROOT_PART="/dev/disk/by-partlabel/ROOT"
+    SWAP_PART="/dev/disk/by-partlabel/SWAP"
+    
+    commands_to_run+=("parted -s \"${DISK}\" mklabel gpt")
+    commands_to_run+=("parted -s \"${DISK}\" mkpart ESP fat32 1MiB 1024MiB")
+    commands_to_run+=("parted -s \"${DISK}\" mkpart ROOT btrfs 1024MiB -16GiB")
+    commands_to_run+=("parted -s \"${DISK}\" mkpart SWAP linux-swap -16GiB 100%")
+    commands_to_run+=("parted -s \"${DISK}\" set 1 esp on")
+    
+    commands_to_run+=("sync")
+    commands_to_run+=("partprobe \"${DISK}\"")
+    commands_to_run+=("udevadm settle")
 
-    if ! lsblk -no FSTYPE "${EFI_PART}" | grep -q "vfat"; then
+    if ! blkid -s TYPE -o value "${EFI_PART}" | grep -q "vfat"; then
         EFI_FORM='vfat'
         commands_to_run+=("mkfs.vfat -F 32 -n ESP \"${EFI_PART}\"")
     fi
 
-    if ! lsblk -no FSTYPE "${ROOT_PART}" | grep -q "btrfs"; then
+    if ! blkid -s TYPE -o value "${ROOT_PART}" | grep -q "btrfs"; then
         ROOT_FORM='btrfs'
-        commands_to_run+=("mkfs.btrfs -L rootfs -f \"${ROOT_PART}\"")
+        commands_to_run+=("mkfs.btrfs -L ROOT -f \"${ROOT_PART}\"")
     fi
-
-    commands_to_run+=("sync")
-    commands_to_run+=("udevadm settle")
-    commands_to_run+=("partprobe \"${DISK}\"")
+    
+    if ! blkid -s TYPE -o value "${SWAP_PART}" | grep -q "swap"; then
+        SWAP_FORM='linux-swap'
+        commands_to_run+=("mkswap -L SWAP \"${SWAP_PART}\"")
+    fi
 
     live_command_output "" "" "Partitioning $DISK" "${commands_to_run[@]}"
 }
@@ -366,7 +364,7 @@ format_as_efi() {
 
 format_as_ext4() {
     local partition="$1"
-    mkfs.ext4 -F "${partition}"
+    mkfs.ext4 -f "${partition}"
 }
 
 format_as_btrfs() {
@@ -448,6 +446,20 @@ Please go back and format the partition as XFS Partition."
         exit
     else
         continue_script 2 "Is XFS" "The partition ($ROOT_PART) is correctly formatted as XFS."
+    fi
+}
+
+enforce_swap() {
+    format_as_xfs "$ROOT_PART"
+    ROOT_FORM=$(lsblk -no FSTYPE "$ROOT_PART")
+
+    if [[ "$ROOT_FORM" != "linux-swap" ]]; then
+        continue_script 2 "Not linux-swap" "Error: The selected partition ($ROOT_PART) is not formatted as swap.
+Please go back and format the partition as swap Partition."
+        export ROOT_PART ROOT_FORM
+        exit
+    else
+        continue_script 2 "Is XFS" "The partition ($ROOT_PART) is correctly formatted as swap."
     fi
 }
 

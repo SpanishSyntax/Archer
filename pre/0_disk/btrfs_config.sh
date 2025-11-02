@@ -31,7 +31,7 @@ mount_btrfs() {
         flags=$(echo "$flags" | xargs)
         path=$(echo "$path" | xargs)
         desc=$(echo "$desc" | xargs)
-        commands_to_run+=("btrfs su cr /mnt/$key")
+        commands_to_run+=("[[ -d /mnt/$key ]] || btrfs subvolume create /mnt/$key")
     done
     
     commands_to_run+=("chattr +C /mnt/@home")
@@ -46,17 +46,18 @@ mount_btrfs() {
         commands_to_run+=("chattr +C /mnt/$key")
     done
 
+    commands_to_run+=("sync")
+    commands_to_run+=("udevadm settle")
     commands_to_run+=("umount /mnt")
     commands_to_run+=("mount -o ssd,noatime,compress=zstd,subvol=@ \"${ROOT_PART}\" /mnt")
 
     commands_to_run+=("mkdir -p /mnt/.btrfsroot")
     commands_to_run+=("mkdir -p /mnt/home")
     commands_to_run+=("mkdir -p /mnt/.snapshots")
-    
-    commands_to_run+=("mount -o ssd,noatime,compress=zstd,subvolid=5 \"${ROOT_PART}\" /mnt/.btrfsroot")
-    commands_to_run+=("mount -o ssd,noatime,compress=zstd,subvol=@home \"${ROOT_PART}\" /mnt/home")
-    commands_to_run+=("mount -o ssd,noatime,compress=zstd,subvol=@snapshots \"${ROOT_PART}\" /mnt/.snapshots")
-    
+
+    commands_to_run+=("mount -o ssd,noatime,compress=zstd,nodev,nosuid,noexec,subvolid=5 \"${ROOT_PART}\" /mnt/.btrfsroot")
+    commands_to_run+=("mount -o ssd,noatime,compress=zstd,nodev,nosuid,subvol=@home \"${ROOT_PART}\" /mnt/home")
+    commands_to_run+=("mount -o ssd,noatime,compress=zstd,nodev,nosuid,noexec,subvol=@snapshots \"${ROOT_PART}\" /mnt/.snapshots")
 
     for key in "${!given_array[@]}"; do
         IFS=" | " read -r disk flags path desc <<< "${given_array[$key]}"
@@ -78,8 +79,11 @@ mount_btrfs() {
         local options+=("$key has $path")
     done
 
-    commands_to_run+=("mkdir -p /mnt/efi")
-    commands_to_run+=("mount -o nodev,nosuid,noexec \"${EFI_PART}\" /mnt/efi")
+    commands_to_run+=("mkdir -p /mnt/boot")
+    commands_to_run+=("mount -o nodev,nosuid \"${EFI_PART}\" /mnt/boot")
+    commands_to_run+=("swapon \"${SWAP_PART}\"")
+    commands_to_run+=("btrfs property set /mnt/@snapshots ro true")
+
     live_command_output "" "" "Configuring BTRFS volumes on $ROOT_PART" "${commands_to_run[@]}"
     
     continue_script 2 "Finished BTRFS setup" "Finished mouting BTRFS and all of its required structure.
@@ -97,6 +101,8 @@ $(printf "%s\n" "${options[@]}")"
 run_btrfs_setup() {
     declare -A subvols
     local subvols=(
+        ["@nix"]="${ROOT_PART} | ssd,noatime,compress=zstd,nodatacow,nodev,nosuid | /nix | Nix store, holds immutable package binaries and system derivations."
+        ["@persist"]="${ROOT_PART} | ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec | /persist | Persistent data for NixOS impermanence module (optional)."
         ["@var_cache"]="${ROOT_PART} | ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec | /var/cache | Cached data for apps and package managers, can be recreated if cleared."
         ["@var_spool"]="${ROOT_PART} | ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec | /var/spool | Holds queues for tasks like mail, printing, or other pending jobs."
         ["@var_tmp"]="${ROOT_PART} | ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec | /var/tmp | Temporary files for apps and services, persisting after reboots if needed."
@@ -120,7 +126,7 @@ run_btrfs_setup() {
     
     if [[ "$ROOT_FORM" == "btrfs" ]]; then
 
-        subvol_menu_choice=($(multiselect_prompt "Starting subvol picker" "The following volumes are required for the system to work and will be create automatically\n\n.1. @\n2. @home\n\n3. @snapshots\n\nPlease choose what extra subvolumes you require." "${options[@]}"))
+        subvol_menu_choice=($(multiselect_prompt "Starting subvol picker" "The following volumes are required for the system to work and will be created automatically\n\n.1. @\n2. @home\n\n3. @snapshots\n\nPlease choose what extra subvolumes you require." "${options[@]}"))
 
         declare -A filtered_subvols
         for choice in "${subvol_menu_choice[@]}"; do
