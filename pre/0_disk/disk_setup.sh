@@ -229,9 +229,9 @@ nuke_disk() {
     commands_to_run+=("dd if=/dev/zero of=\"${DISK}\" bs=1M count=10 status=progress")
 
     # 3. Reload partition info
-    commands_to_run+=("sync")
-    commands_to_run+=("partprobe \"${DISK}\"")
-    commands_to_run+=("udevadm settle")
+    # commands_to_run+=("sync")
+    # commands_to_run+=("partprobe \"${DISK}\"")
+    # commands_to_run+=("udevadm settle")
     
     export DISK
     live_command_output "" "" "Nuking $DISK" "${commands_to_run[@]}"
@@ -250,9 +250,9 @@ autopartition_disk() {
     commands_to_run+=("parted -s \"${DISK}\" mkpart SWAP linux-swap -16GiB 100%")
     commands_to_run+=("parted -s \"${DISK}\" set 1 esp on")
     
-    commands_to_run+=("sync")
-    commands_to_run+=("partprobe \"${DISK}\"")
-    commands_to_run+=("udevadm settle")
+    # commands_to_run+=("sync")
+    # commands_to_run+=("partprobe \"${DISK}\"")
+    # commands_to_run+=("udevadm settle")
 
     if ! blkid -s TYPE -o value "${EFI_PART}" | grep -q "vfat"; then
         EFI_FORM='vfat'

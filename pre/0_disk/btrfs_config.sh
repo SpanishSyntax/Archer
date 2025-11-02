@@ -46,8 +46,8 @@ mount_btrfs() {
         commands_to_run+=("chattr +C /mnt/$key")
     done
 
-    commands_to_run+=("sync")
-    commands_to_run+=("udevadm settle")
+    # commands_to_run+=("sync")
+    # commands_to_run+=("udevadm settle")
     commands_to_run+=("umount /mnt")
     commands_to_run+=("mount -o ssd,noatime,compress=zstd,subvol=@ \"${ROOT_PART}\" /mnt")
 
