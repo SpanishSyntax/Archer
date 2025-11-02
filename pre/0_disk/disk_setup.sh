@@ -82,8 +82,8 @@ full_default_route() {
     while true; do
         menu_prompt install_mode_menu "$title" "$description" "${options[@]}"
         case $install_mode_menu in
-            0)  nuke_disk;;
-            1)  autopartition_disk;;
+            0)  nuke_disk;break;;
+            1)  autopartition_disk;break;;
             2)  enforce_btrfs;run_btrfs_setup;break;;
             b)  exit;;
             *)  continue_script 2 "Option not valid" "That is not an option, returning to start menu.";exit;;
