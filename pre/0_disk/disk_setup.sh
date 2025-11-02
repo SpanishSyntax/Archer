@@ -47,9 +47,9 @@ With this in mind, let's pick between sane defaults or full custom mode."
     while true; do
         menu_prompt install_mode_menu "$title" "$description" "${options[@]}"
         case $install_mode_menu in
-            0)  full_default_route;break;;
-            1)  custom_default_route;break;;
-            2)  full_custom_route;break;;
+            0)  full_default_route;exit;;
+            1)  custom_default_route;exit;;
+            2)  full_custom_route;exit;;
             e)  exit;;
             *)  continue_script 2 "Option not valid" "That is not an option, returning to start menu.";exit;;
         esac
